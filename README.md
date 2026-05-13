@@ -167,10 +167,13 @@ npm start
 ```
 .
 ├── src/
-│   ├── server.js           # 主服务器
-│   ├── routes/             # API 路由
-│   ├── services/           # 业务逻辑
-│   └── utils/              # 工具函数
+│   └── server.js           # 主服务器
+├── miniapp/                # 微信小程序前端
+│   ├── pages/              # 页面
+│   ├── utils/              # 工具函数
+│   ├── app.js              # 小程序入口
+│   ├── app.json            # 小程序配置
+│   └── README.md           # 小程序文档
 ├── skills/                 # OpenClaw Skills
 │   ├── client-research/    # 客户尽调
 │   ├── financial-report/   # 财报分析
@@ -178,7 +181,9 @@ npm start
 ├── docker-compose.yml      # Docker 编排
 ├── Dockerfile              # Docker 镜像
 ├── package.json            # 依赖管理
-└── README.md               # 本文件
+├── README.md               # 本文件
+├── DEPLOYMENT.md           # 部署指南
+└── API.md                  # API 文档
 ```
 
 ## 监控

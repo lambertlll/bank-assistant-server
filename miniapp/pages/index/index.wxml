@@ -1,0 +1,97 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <!-- 使用统计 -->
+  <view class="card">
+    <view class="title">今日使用情况</view>
+    <view class="usage-info">
+      <text>已使用：{{usage.used}} 次</text>
+      <text>剩余：{{usage.remaining}} 次</text>
+    </view>
+  </view>
+
+  <!-- 功能选择 -->
+  <view class="card">
+    <view class="title">选择功能</view>
+    <view class="function-list">
+      <view class="function-item {{selectedFunction === 'client-research' ? 'active' : ''}}" 
+            bindtap="selectFunction" data-function="client-research">
+        <view class="function-icon">📋</view>
+        <view class="function-name">客户尽调</view>
+        <view class="function-desc">企业/个人背景调查</view>
+      </view>
+      
+      <view class="function-item {{selectedFunction === 'financial-report' ? 'active' : ''}}" 
+            bindtap="selectFunction" data-function="financial-report">
+        <view class="function-icon">📊</view>
+        <view class="function-name">财报分析</view>
+        <view class="function-desc">上市公司财务分析</view>
+      </view>
+      
+      <view class="function-item {{selectedFunction === 'credit-committee' ? 'active' : ''}}" 
+            bindtap="selectFunction" data-function="credit-committee">
+        <view class="function-icon">💼</view>
+        <view class="function-name">审贷会助手</view>
+        <view class="function-desc">审贷会准备材料</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 输入表单 -->
+  <view class="card" wx:if="{{selectedFunction}}">
+    <view class="title">输入信息</view>
+    
+    <!-- 客户尽调 -->
+    <view wx:if="{{selectedFunction === 'client-research'}}">
+      <input class="input" placeholder="请输入客户名称" bindinput="onInputChange" data-field="clientName" />
+      <view class="radio-group">
+        <label class="radio">
+          <radio value="enterprise" checked="{{clientType === 'enterprise'}}" bindtap="onRadioChange" data-field="clientType" data-value="enterprise" />
+          企业客户
+        </label>
+        <label class="radio">
+          <radio value="individual" checked="{{clientType === 'individual'}}" bindtap="onRadioChange" data-field="clientType" data-value="individual" />
+          个人客户
+        </label>
+      </view>
+    </view>
+    
+    <!-- 财报分析 -->
+    <view wx:if="{{selectedFunction === 'financial-report'}}">
+      <input class="input" placeholder="请输入公司名称" bindinput="onInputChange" data-field="companyName" />
+      <view class="radio-group">
+        <label class="radio">
+          <radio value="detailed" checked="{{reportType === 'detailed'}}" bindtap="onRadioChange" data-field="reportType" data-value="detailed" />
+          详细版
+        </label>
+        <label class="radio">
+          <radio value="simple" checked="{{reportType === 'simple'}}" bindtap="onRadioChange" data-field="reportType" data-value="simple" />
+          简化版
+        </label>
+      </view>
+    </view>
+    
+    <!-- 审贷会助手 -->
+    <view wx:if="{{selectedFunction === 'credit-committee'}}">
+      <input class="input" placeholder="请输入公司名称" bindinput="onInputChange" data-field="companyName" />
+      <view class="radio-group">
+        <label class="radio">
+          <radio value="word" checked="{{outputFormat === 'word'}}" bindtap="onRadioChange" data-field="outputFormat" data-value="word" />
+          Word 格式
+        </label>
+        <label class="radio">
+          <radio value="text" checked="{{outputFormat === 'text'}}" bindtap="onRadioChange" data-field="outputFormat" data-value="text" />
+          文本格式
+        </label>
+      </view>
+    </view>
+    
+    <button class="button-primary" bindtap="submit" disabled="{{loading}}">
+      {{loading ? '处理中...' : '开始分析'}}
+    </button>
+  </view>
+
+  <!-- 错误提示 -->
+  <view class="error" wx:if="{{error}}">
+    {{error}}
+  </view>
+</view>

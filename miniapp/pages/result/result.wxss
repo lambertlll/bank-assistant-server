@@ -1,0 +1,33 @@
+/* pages/result/result.wxss */
+.result-content {
+  font-size: 28rpx;
+  line-height: 1.8;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 20rpx;
+}
+
+.button-secondary {
+  flex: 1;
+  background-color: #fff;
+  color: #1890ff;
+  border: 2rpx solid #1890ff;
+  border-radius: 8rpx;
+  padding: 20rpx;
+  text-align: center;
+  font-size: 28rpx;
+}
+
+.button-secondary:active {
+  opacity: 0.8;
+}
+
+.button-primary {
+  flex: 1;
+}
