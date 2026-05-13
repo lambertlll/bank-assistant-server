@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  bank-assistant:
+    build: .
+    container_name: bank-assistant
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DAILY_LIMIT=100
+      - NODE_ENV=production
+    volumes:
+      - ./skills:/root/.openclaw/workspace/skills
+      - openclaw-data:/root/.openclaw
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  openclaw-data:
