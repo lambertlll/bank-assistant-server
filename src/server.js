@@ -3,15 +3,29 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const { exec } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
+
+const { generateAndSaveDocx } = require('./utils/docx-generator');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT) || 100;
 
+// 邀请码配置
+const VALID_INVITE_CODES = ['CMB'];
+
 // 中间件
 app.use(cors());
 app.use(bodyParser.json());
+
+// 静态文件服务（报告下载）
+const reportsDir = path.join(__dirname, '../reports');
+if (!fs.existsSync(reportsDir)) {
+  fs.mkdirSync(reportsDir, { recursive: true });
+}
+app.use('/reports', express.static(reportsDir));
 
 // 任务存储
 const tasks = new Map();
@@ -125,9 +139,21 @@ async function processTask(taskId, taskType, params) {
     // 执行 OpenClaw
     const result = await executeOpenClaw(prompt);
     
+    // 生成 Word 文档
+    console.log(`[任务 ${taskId}] 正在生成 Word 文档...`);
+    let docxInfo = null;
+    try {
+      docxInfo = await generateAndSaveDocx(result, taskType, params, taskId);
+      console.log(`[任务 ${taskId}] Word 文档已生成: ${docxInfo.filename}`);
+    } catch (docxError) {
+      console.error(`[任务 ${taskId}] Word 生成失败:`, docxError.message);
+      // Word 生成失败不影响任务完成，仍返回文本结果
+    }
+
     // 更新任务状态
     task.status = TaskStatus.COMPLETED;
     task.result = result;
+    task.docx = docxInfo; // { filePath, filename }
     task.updatedAt = new Date().toISOString();
     tasks.set(taskId, task);
     
@@ -336,6 +362,13 @@ app.get('/api/task/:taskId', (req, res) => {
       remaining: usageStats.dailyLimit - usageStats.totalRequests,
       total: usageStats.dailyLimit
     };
+    // 附带 Word 文档下载信息
+    if (task.docx) {
+      response.docx = {
+        url: `/api/download/${taskId}`,
+        filename: task.docx.filename
+      };
+    }
   } else if (task.status === TaskStatus.FAILED) {
     response.error = task.error;
   } else {
@@ -343,6 +376,55 @@ app.get('/api/task/:taskId', (req, res) => {
   }
   
   res.json(response);
+});
+
+// 5. 文件下载
+app.get('/api/download/:taskId', (req, res) => {
+  const { taskId } = req.params;
+  const task = tasks.get(taskId);
+  
+  if (!task) {
+    return res.status(404).json({ success: false, error: '任务不存在' });
+  }
+  
+  if (!task.docx || !task.docx.filePath) {
+    return res.status(404).json({ success: false, error: '文档尚未生成' });
+  }
+  
+  const filePath = task.docx.filePath;
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ success: false, error: '文件不存在' });
+  }
+  
+  // 设置下载头
+  const filename = encodeURIComponent(task.docx.filename);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`);
+  
+  const fileStream = fs.createReadStream(filePath);
+  fileStream.pipe(res);
+});
+
+// 6. 验证邀请码
+app.post('/api/verify-code', (req, res) => {
+  const { code } = req.body;
+  
+  if (!code) {
+    return res.status(400).json({
+      success: false,
+      valid: false,
+      error: '请提供邀请码'
+    });
+  }
+  
+  const isValid = VALID_INVITE_CODES.includes(code.trim().toUpperCase());
+  
+  res.json({
+    success: true,
+    valid: isValid,
+    message: isValid ? '验证成功' : '邀请码无效'
+  });
 });
 
 // 获取使用统计
