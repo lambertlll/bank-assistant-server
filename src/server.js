@@ -75,7 +75,7 @@ function executeOpenClaw(message) {
   return new Promise((resolve, reject) => {
     // 转义单引号
     const escapedMessage = message.replace(/'/g, "'\\''");
-    const command = `openclaw agent --local --message '${escapedMessage}'`;
+    const command = `openclaw agent --local --agent main --message '${escapedMessage}'`;
     
     console.log(`[${new Date().toISOString()}] 执行命令: ${command.substring(0, 100)}...`);
     
