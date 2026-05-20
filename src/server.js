@@ -105,15 +105,15 @@ function buildPrompt(taskType, params) {
   switch (taskType) {
     case 'client-research':
       const typeText = params.clientType === 'individual' ? '个人客户（高管/企业家）' : '企业客户';
-      prompt = `请帮我做 ${params.clientName} 的客户尽调报告，客户类型：${typeText}`;
+      prompt = `请帮我做 ${params.clientName} 的客户尽调报告，客户类型：${typeText}。【重要】请直接输出报告正文内容，使用Markdown格式。不要包含任何开场白、寒暄、解释说明或结束语。直接从报告标题开始输出。`;
       break;
     case 'financial-report':
       const reportTypeText = params.reportType === 'detailed' ? '详细版' : '简化版';
-      prompt = `请帮我做 ${params.companyName} 的财报分析，${reportTypeText}`;
+      prompt = `请帮我做 ${params.companyName} 的财报分析，${reportTypeText}。【重要】请直接输出报告正文内容，使用Markdown格式。不要包含任何开场白、寒暄、解释说明或结束语。直接从报告标题开始输出。`;
       break;
     case 'credit-committee':
       const formatText = params.outputFormat === 'word' ? '，输出Word格式' : '';
-      prompt = `请帮我准备 ${params.companyName} 的审贷会材料${formatText}`;
+      prompt = `请帮我准备 ${params.companyName} 的审贷会材料${formatText}。【重要】请直接输出报告正文内容，使用Markdown格式。不要包含任何开场白、寒暄、解释说明或结束语。直接从报告标题开始输出。`;
       break;
   }
   
