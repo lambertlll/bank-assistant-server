@@ -8,6 +8,7 @@ const fs = require('fs');
 require('dotenv').config();
 
 const { generateAndSaveDocx } = require('./utils/docx-generator');
+const taskStore = require('./utils/task-store');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,8 +28,8 @@ if (!fs.existsSync(reportsDir)) {
 }
 app.use('/reports', express.static(reportsDir));
 
-// 任务存储
-const tasks = new Map();
+// 任务内存缓存（仅用于进行中的任务，完成后持久化到磁盘）
+const activeTasks = new Map();
 const TaskStatus = {
   PENDING: 'pending',
   PROCESSING: 'processing',
@@ -75,7 +76,9 @@ function executeOpenClaw(message) {
   return new Promise((resolve, reject) => {
     // 转义单引号
     const escapedMessage = message.replace(/'/g, "'\\''");
-    const command = `openclaw agent --local --agent main --message '${escapedMessage}'`;
+    // 使用独立会话避免与主对话产生锁冲突
+    const sessionId = `bank-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const command = `openclaw agent --local --agent main --session '${sessionId}' --message '${escapedMessage}'`;
     
     console.log(`[${new Date().toISOString()}] 执行命令: ${command.substring(0, 100)}...`);
     
@@ -122,13 +125,14 @@ function buildPrompt(taskType, params) {
 
 // 异步处理任务
 async function processTask(taskId, taskType, params) {
-  const task = tasks.get(taskId);
+  const task = activeTasks.get(taskId);
   if (!task) return;
   
   try {
     task.status = TaskStatus.PROCESSING;
     task.updatedAt = new Date().toISOString();
-    tasks.set(taskId, task);
+    activeTasks.set(taskId, task);
+    taskStore.saveTask(taskId, task);
     
     console.log(`[任务 ${taskId}] 开始处理: ${taskType}`);
     
@@ -147,15 +151,16 @@ async function processTask(taskId, taskType, params) {
       console.log(`[任务 ${taskId}] Word 文档已生成: ${docxInfo.filename}`);
     } catch (docxError) {
       console.error(`[任务 ${taskId}] Word 生成失败:`, docxError.message);
-      // Word 生成失败不影响任务完成，仍返回文本结果
     }
 
     // 更新任务状态
     task.status = TaskStatus.COMPLETED;
     task.result = result;
-    task.docx = docxInfo; // { filePath, filename }
+    task.docx = docxInfo;
     task.updatedAt = new Date().toISOString();
-    tasks.set(taskId, task);
+    activeTasks.set(taskId, task);
+    // 持久化到磁盘
+    taskStore.saveTask(taskId, task);
     
     // 更新统计
     usageStats.totalRequests++;
@@ -168,7 +173,8 @@ async function processTask(taskId, taskType, params) {
     task.status = TaskStatus.FAILED;
     task.error = error.message;
     task.updatedAt = new Date().toISOString();
-    tasks.set(taskId, task);
+    activeTasks.set(taskId, task);
+    taskStore.saveTask(taskId, task);
   }
 }
 
@@ -206,7 +212,8 @@ app.post('/api/client-research', async (req, res) => {
       error: null
     };
     
-    tasks.set(taskId, task);
+    activeTasks.set(taskId, task);
+    taskStore.saveTask(taskId, task);
     
     // 异步处理
     processTask(taskId, 'client-research', { clientName, clientType });
@@ -260,7 +267,8 @@ app.post('/api/financial-report', async (req, res) => {
       error: null
     };
     
-    tasks.set(taskId, task);
+    activeTasks.set(taskId, task);
+    taskStore.saveTask(taskId, task);
     
     // 异步处理
     processTask(taskId, 'financial-report', { companyName, reportType });
@@ -314,7 +322,8 @@ app.post('/api/credit-committee', async (req, res) => {
       error: null
     };
     
-    tasks.set(taskId, task);
+    activeTasks.set(taskId, task);
+    taskStore.saveTask(taskId, task);
     
     // 异步处理
     processTask(taskId, 'credit-committee', { companyName, outputFormat });
@@ -339,7 +348,7 @@ app.post('/api/credit-committee', async (req, res) => {
 // 4. 查询任务状态
 app.get('/api/task/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const task = tasks.get(taskId);
+  const task = activeTasks.get(taskId) || taskStore.getTask(taskId);
   
   if (!task) {
     return res.status(404).json({
@@ -381,7 +390,7 @@ app.get('/api/task/:taskId', (req, res) => {
 // 5. 文件下载
 app.get('/api/download/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const task = tasks.get(taskId);
+  const task = activeTasks.get(taskId) || taskStore.getTask(taskId);
   
   if (!task) {
     return res.status(404).json({ success: false, error: '任务不存在' });
@@ -453,8 +462,20 @@ app.get('/', (req, res) => {
   res.json({ 
     status: 'ok',
     service: 'bank-assistant-server',
-    version: '1.0.0',
+    version: '1.1.0',
     mode: 'standalone'
+  });
+});
+
+// 历史记录列表（服务器端持久化）
+app.get('/api/history', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+  const offset = parseInt(req.query.offset) || 0;
+  const result = taskStore.listTasks(limit, offset);
+  res.json({
+    success: true,
+    total: result.total,
+    tasks: result.tasks
   });
 });
 
@@ -465,7 +486,7 @@ app.get('/api/health', (req, res) => {
     dailyLimit: usageStats.dailyLimit,
     used: usageStats.totalRequests,
     remaining: usageStats.dailyLimit - usageStats.totalRequests,
-    activeTasks: tasks.size
+    activeTasks: activeTasks.size
   });
 });
 
